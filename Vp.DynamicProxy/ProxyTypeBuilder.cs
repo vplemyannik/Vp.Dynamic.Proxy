@@ -57,75 +57,40 @@ namespace Vp.DynamicProxy
             var wrapperType = InfoProvider.GetWrapperType<TProxy>();
             var getter = wrapperType.GetProperty("ProxyObject").GetGetMethod();
             var ILGen = methodBuilder.GetILGenerator();
+            var codeGen = new CodeGenerator(ILGen);
+           
+            var proxyObject = codeGen.DeclareLocalVariable(typeof(ProxyWrapper<TProxy>));
+            var proxyMethodLabelStart = codeGen.DefineLabel();
 
-            var preActionVariable = ILGen.DeclareLocal(typeof(Action));
-            var nullConditionVariable = ILGen.DeclareLocal(typeof(bool));
-            var exceptionVariable = ILGen.DeclareLocal(typeof(Exception));
-
-            
-            var proxyMethodLabelStart = ILGen.DefineLabel();
-
-            GeneratePreActionInvocation(ILGen, proxyMethodLabelStart);
-            ILGen.MarkLabel(proxyMethodLabelStart);
-            ILGen.Emit(OpCodes.Ldarg_0); // load this
-            ILGen.Emit(OpCodes.Call, getter); // this.ProxyObject_get()
-
-            var methodParams = proxyMethod.GetParameters();
-            int pidx = 1;
-            foreach (var parameterInfo in methodParams)
-            {
-                ILGen.Emit(OpCodes.Ldarg, pidx++);
-            }
-            
-            // TODO Implement logic for type param method
-            
-            ILGen.EmitCall(OpCodes.Callvirt, proxyMethod, null); // _proxyObject.{proxyMethod}.Invoke()
-            ILGen.Emit(OpCodes.Ret);
+            GeneratePreActionInvocation(codeGen, proxyMethodLabelStart);
+            codeGen.MarkLabel(proxyMethodLabelStart);
+            codeGen.GetProperty(methodGetter:getter, storeVariable:proxyObject);
+            codeGen.InvokeMethodOnObject(proxyObject, proxyMethod);
+            codeGen.Return();
             
             _typeBuilder.DefineMethodOverride(methodBuilder, proxyMethod);
         }
 
-        public void GeneratePreActionInvocation(ILGenerator ILGen, Label exitLabel)
+        private void GeneratePreActionInvocation(CodeGenerator codeGen, Label exitLabel)
         {
             var wrapperType = InfoProvider.GetWrapperType<TProxy>();
-            var preActionProp = wrapperType.GetProperty("PreAction");
-            var preActionGetter = preActionProp.GetGetMethod();
-            var invokeMethod = InfoProvider.GetInvokeMethod();
-            var messageGetter = typeof(Exception).GetProperty("Message").GetGetMethod();
-            var writeLine = typeof(Console).GetMethod("WriteLine", new[] {typeof(string)});
-            
-            var codeGen = new CodeGenerator(ILGen);
+            var preActionGetter = wrapperType.GetProperty("PreAction").GetGetMethod();
+            var preActionVariable = codeGen.DeclareLocalVariable(typeof(Action));
             
             // try block start
-            var tryBlockLabel = ILGen.BeginExceptionBlock();
-            var preActionNoLabel = ILGen.DefineLabel();
-                        
-            ILGen.Emit(OpCodes.Ldarg_0); // load this
-            ILGen.Emit(OpCodes.Call, preActionGetter); // this.get_PreAction()
-            ILGen.Emit(OpCodes.Stloc_0); // var preAction = PreAction
-            ILGen.Emit(OpCodes.Ldloc_0); // load preAction on the stack
-            ILGen.Emit(OpCodes.Ldnull); // load null 
-            ILGen.Emit(OpCodes.Cgt_Un); // if(preAction != null)  
-            ILGen.Emit(OpCodes.Stloc_1); // save condition result into variable
-            ILGen.Emit(OpCodes.Ldloc_1); // load condition result in stack
-            ILGen.Emit(OpCodes.Brfalse_S, preActionNoLabel);// if false (preAction = null) -> Goto preActionNoLabel
-            ILGen.Emit(OpCodes.Ldarg_0); // else 
-            ILGen.Emit(OpCodes.Call, preActionGetter); // load preAction on Stack
-            ILGen.Emit(OpCodes.Callvirt, invokeMethod); // PreAction()
-            ILGen.MarkLabel(preActionNoLabel);
-            ILGen.Emit(OpCodes.Leave_S, exitLabel); // exit
+            codeGen.BeginTry();
+                var preActionNoLabel = codeGen.DefineLabel();
+                codeGen.GetProperty(methodGetter: preActionGetter, storeVariable: preActionVariable);
+                codeGen.StartIfNullBlock(variable: preActionVariable, goIfNull: preActionNoLabel);
+                    codeGen.InvokeMethodAsVariable(preActionVariable);
+                codeGen.MarkEndIfBlock(preActionNoLabel);
+                codeGen.GoTo(exitLabel); // exit
             
             // start catch 
-            ILGen.BeginCatchBlock(typeof(Exception));
-            ILGen.Emit(OpCodes.Stloc_2); // store exception into variable 
-            ILGen.Emit(OpCodes.Ldloc_2); // load exception on stack
-           
-            ILGen.EmitCall(OpCodes.Callvirt, messageGetter, null);
-            ILGen.EmitCall(OpCodes.Call, writeLine, null);
-            
-             // ILGen.Emit(OpCodes.Rethrow);
-             
-             ILGen.EndExceptionBlock();
+            codeGen.EndTry();
+            codeGen.BeginCatch();
+                // codeGen.ReThrowException();
+            codeGen.EndCatch();
         }
     }
 }

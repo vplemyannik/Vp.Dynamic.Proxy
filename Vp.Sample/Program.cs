@@ -16,9 +16,7 @@ namespace Vp.Sample
             {
                 try
                 {
-                    NullHandler(PreAction, 
-                        () => PreAction(), 
-                        () => Console.WriteLine("Preaction is null"));
+                    NullHandler(1, "a");
    
                 }
                 catch (Exception e)
@@ -30,16 +28,9 @@ namespace Vp.Sample
                 ProxyObject.DoWork(message);
             }
 
-            private void NullHandler(object @object, Action success, Action failed)
+            private string NullHandler(int a, string success)
             {
-                 if (@object != null)
-                 {
-                     success();
-                 }
-                 else
-                 {
-                     failed();
-                 }
+                return success + a;
             }
 
         }
