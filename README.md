@@ -1,6 +1,6 @@
 # Vp.Dynamic.Proxy
 
-Suppose you have some interfaces or abstract classes, and you want added additional functionality for them. You can do this used Decorator for each kind of interface 
+Suppose you have some interfaces or abstract classes, and you want added additional functionality for them. You can do this used Decorator for each kind of interface, something like this 
 ```csharp
  public interface ISomeWorker
   {
@@ -16,20 +16,20 @@ Suppose you have some interfaces or abstract classes, and you want added additio
   }
   
   public class ProxyWorker: ISomeWorker worker
-
-{
-
-      private readonly ISomeWorker _worker;
-      public ProxyWorker(ISomeWorker worker)
-      {
-        _worker = worker;
-      }
-      void DoWork(string message)
-      {
-        ... Some usefull work before
-        _worker.DoWork(message)
-         ... Some usefull work after
-      }
+ {
+    private readonly ISomeWorker _worker;
+    
+    public ProxyWorker(ISomeWorker worker)
+    {
+      _worker = worker;
+    }
+    
+    void DoWork(string message)
+    {
+      //... Some usefull work before
+      _worker.DoWork(message)
+      // ... Some usefull work after
+    }
   }
 ```
 but you can create this proxy dynamically just use ```DynamicProxyBuilder```
