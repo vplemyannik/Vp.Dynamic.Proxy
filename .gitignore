@@ -1,0 +1,38 @@
+# See http://help.github.com/ignore-files/ for more about ignoring files.
+
+# compiled output
+*/bin/*
+*/obj/*
+
+# dependencies
+/SocialNetwork/node_modules
+
+# IDEs and editors
+.idea
+/SocialNetwork/.project
+/SocialNetwork/.classpath
+/SocialNetwork/.c9/
+/SocialNetwork/*.launch
+/SocialNetwork/.settings/
+/SocialNetwork/*.sublime-workspace
+
+# IDE - VSCode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# misc
+/.sass-cache
+/connect.lock
+/coverage
+/libpeerconnection.log
+npm-debug.log
+yarn-error.log
+testem.log
+/typings
+
+# System Files
+.DS_Store
+Thumbs.db
