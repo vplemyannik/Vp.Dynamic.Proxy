@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
@@ -59,6 +60,29 @@ namespace Vp.DynamicProxy
         public void GetProperty(MethodInfo methodGetter, LocalBuilder storeVariable)
         {
             InvokeOnThisWithResult(methodGetter, storeVariable);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetProperty(MethodInfo methodSetter, LocalBuilder variable)
+        {
+            _ILGen.Emit(OpCodes.Ldarg_0); // load this on stack
+            _ILGen.Emit(OpCodes.Ldarg_1); // load proxyObject on stack
+            _ILGen.Emit(OpCodes.Call, methodSetter); // ProxyObject_set(proxyObject)
+        }
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetPropertyCtor(MethodInfo methodSetter, int index)
+        {
+            _ILGen.Emit(OpCodes.Ldarg_0); // load this on stack
+            _ILGen.Emit(OpCodes.Ldarg, index); // load proxyObject on stack
+            _ILGen.Emit(OpCodes.Call, methodSetter); // ProxyObject_set(proxyObject)
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void InitializeBaseCtor(ConstructorInfo baseConstructor)
+        {
+            _ILGen.Emit(OpCodes.Ldarg_0); // load this on stack
+            _ILGen.Emit(OpCodes.Call, baseConstructor); // base()
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

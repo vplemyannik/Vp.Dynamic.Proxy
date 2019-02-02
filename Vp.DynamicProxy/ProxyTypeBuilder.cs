@@ -25,26 +25,23 @@ namespace Vp.DynamicProxy
             
             var wrapperType = InfoProvider.GetWrapperType<TProxy>();
             
-            var constructor = wrapperType.GetConstructor(
+            var baseConstructor = wrapperType.GetConstructor(
                 BindingFlags.Public | BindingFlags.Instance, 
                 null, new Type[0], null );
 
             var setter = wrapperType.GetProperty("ProxyObject").GetSetMethod();
-            
+
             var ILGen = constructorBuilder.GetILGenerator();
-            ILGen.Emit(OpCodes.Ldarg_0); // load this on stack
-            ILGen.Emit(OpCodes.Call, constructor); // base()
-            ILGen.Emit(OpCodes.Ldarg_0); // load this on stack again
-            ILGen.Emit(OpCodes.Ldarg_1); // load proxyObject on stack
-            ILGen.Emit(OpCodes.Call, setter); // ProxyObject_set(proxyObject)
-            ILGen.Emit(OpCodes.Ret);
+            var codeGen = new CodeGenerator(ILGen);
+            codeGen.InitializeBaseCtor(baseConstructor);
+            codeGen.SetPropertyCtor(setter, 1);
+            codeGen.Return();
         }
 
         public void ImplementMethod(MethodInfo proxyMethod)
         {
             var methodName = proxyMethod.Name;
             var returnType = proxyMethod.ReturnType;
-            var attributes = proxyMethod.Attributes;
             var paramsTypes = proxyMethod.GetParameters().Select(p => p.ParameterType).ToArray();
             
             var methodBuilder = _typeBuilder.DefineMethod(
@@ -53,28 +50,31 @@ namespace Vp.DynamicProxy
                 proxyMethod.CallingConvention, 
                 returnType, 
                 paramsTypes);
-            
-            var wrapperType = InfoProvider.GetWrapperType<TProxy>();
-            var getter = wrapperType.GetProperty("ProxyObject").GetGetMethod();
-            var ILGen = methodBuilder.GetILGenerator();
-            var codeGen = new CodeGenerator(ILGen);
-           
-            var proxyObject = codeGen.DeclareLocalVariable(typeof(ProxyWrapper<TProxy>));
-            var proxyMethodLabelStart = codeGen.DefineLabel();
 
-            GeneratePreActionInvocation(codeGen, proxyMethodLabelStart);
-            codeGen.MarkLabel(proxyMethodLabelStart);
-            codeGen.GetProperty(methodGetter:getter, storeVariable:proxyObject);
-            codeGen.InvokeMethodOnObject(proxyObject, proxyMethod);
-            codeGen.Return();
+
+            GenerateMethod(methodBuilder, proxyMethod);
             
             _typeBuilder.DefineMethodOverride(methodBuilder, proxyMethod);
         }
 
-        private void GeneratePreActionInvocation(CodeGenerator codeGen, Label exitLabel)
+        private void GenerateMethod(MethodBuilder methodBuilder, MethodInfo proxyMethod)
+        {
+            var ILGen = methodBuilder.GetILGenerator();
+            var codeGen = new CodeGenerator(ILGen);
+           
+            var proxyMethodLabelStart = codeGen.DefineLabel();
+            var finallyEnd = codeGen.DefineLabel();
+
+            GenerateAdditionalMethodInvocation(codeGen, proxyMethodLabelStart, "PreAction"); // PreAction();
+            GenerateProxyMethodInvocation(codeGen, proxyMethod, proxyMethodLabelStart); // ProxyMethod();
+            GenerateAdditionalMethodInvocation(codeGen, finallyEnd, "PostAction");
+            codeGen.MarkLabel(finallyEnd);
+            codeGen.Return();
+        }
+        private void GenerateAdditionalMethodInvocation(CodeGenerator codeGen, Label exitLabel, string propsName)
         {
             var wrapperType = InfoProvider.GetWrapperType<TProxy>();
-            var preActionGetter = wrapperType.GetProperty("PreAction").GetGetMethod();
+            var preActionGetter = wrapperType.GetProperty(propsName).GetGetMethod();
             var preActionVariable = codeGen.DeclareLocalVariable(typeof(Action));
             
             // try block start
@@ -91,6 +91,18 @@ namespace Vp.DynamicProxy
             codeGen.BeginCatch();
                 // codeGen.ReThrowException();
             codeGen.EndCatch();
+        }
+
+        private void GenerateProxyMethodInvocation(CodeGenerator codeGen, MethodInfo proxyMethod, Label proxyMethodLabelStart)
+        {
+            var wrapperType = InfoProvider.GetWrapperType<TProxy>();
+            var getter = wrapperType.GetProperty("ProxyObject").GetGetMethod();
+            
+            var proxyObject = codeGen.DeclareLocalVariable(typeof(ProxyWrapper<TProxy>));
+            
+            codeGen.MarkLabel(proxyMethodLabelStart);
+            codeGen.GetProperty(methodGetter:getter, storeVariable:proxyObject);
+            codeGen.InvokeMethodOnObject(proxyObject, proxyMethod);
         }
     }
 }

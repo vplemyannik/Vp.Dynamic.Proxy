@@ -9,53 +9,30 @@ namespace Vp.Sample
         {
             void DoWork(string message);
         }
-
-        public class Worker : ProxyWrapper<ISomeWorker>, ISomeWorker
-        { 
-            public void DoWork(string message)
-            {
-                try
-                {
-                    NullHandler(1, "a");
-   
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine(e.Message);
-                    throw;
-                }
-                
-                ProxyObject.DoWork(message);
-            }
-
-            private string NullHandler(int a, string success)
-            {
-                return success + a;
-            }
-
-        }
-        
+  
         public class WorkerTest : ISomeWorker
         { 
             public void DoWork(string message)
             {                
                 Console.WriteLine(message);
             }
-
         }
-        
-        
+
         static void Main(string[] args)
         {
             var worker = new WorkerTest();
-            TypedReference typedReference = __makeref(worker);
             var proxy = new DynamicProxyBuilder<ISomeWorker>()
                 .AddPreAction(() =>
                 {
-                    Console.WriteLine("Pre Action");
+                    Console.WriteLine("Pre Action Started");
+                })
+                .AddPostAction(() =>
+                {
+                    Console.WriteLine("Post Action Started");
                 })
                 .Build(worker);
-            proxy.DoWork("Do Work action invocation");
+            
+            proxy.DoWork("some workkkkkkkkkkkkkkkk");
             Console.ReadLine();
         }
     }
