@@ -69,3 +69,10 @@ public class Program
     }
 }
 ```
+
+You will see 
+``` 
+Pre Action Started
+Do Some useful work
+Post Action Started
+```
