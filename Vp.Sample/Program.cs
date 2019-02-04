@@ -3,7 +3,7 @@ using Vp.DynamicProxy;
 
 namespace Vp.Sample
 {
-     public class Program
+    public class Program
     {
         public interface ISomeWorker
         {
@@ -32,7 +32,7 @@ namespace Vp.Sample
                 })
                 .Build(worker);
             
-            proxy.DoWork("some workkkkkkkkkkkkkkkk");
+            proxy.DoWork("Do Some useful work");
             Console.ReadLine();
         }
     }

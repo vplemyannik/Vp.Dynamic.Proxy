@@ -34,7 +34,7 @@ namespace Vp.DynamicProxy
             var ILGen = constructorBuilder.GetILGenerator();
             var codeGen = new CodeGenerator(ILGen);
             codeGen.InitializeBaseCtor(baseConstructor);
-            codeGen.SetPropertyCtor(setter, 1);
+            codeGen.SetPropertyCtor(setter, index:1); 
             codeGen.Return();
         }
 
@@ -81,7 +81,7 @@ namespace Vp.DynamicProxy
             codeGen.BeginTry();
                 var preActionNoLabel = codeGen.DefineLabel();
                 codeGen.GetProperty(methodGetter: preActionGetter, storeVariable: preActionVariable);
-                codeGen.StartIfNullBlock(variable: preActionVariable, goIfNull: preActionNoLabel);
+                codeGen.BeginIfNullBlock(variable: preActionVariable, goIfNull: preActionNoLabel);
                     codeGen.InvokeMethodAsVariable(preActionVariable);
                 codeGen.MarkEndIfBlock(preActionNoLabel);
                 codeGen.GoTo(exitLabel); // exit

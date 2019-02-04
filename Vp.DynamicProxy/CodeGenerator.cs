@@ -17,34 +17,44 @@ namespace Vp.DynamicProxy
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void StartIfNullBlock(LocalBuilder variable, Label goIfNull)
+        public void BeginIfNullBlock(LocalBuilder variable, Label goIfNull)
         {
             var nullConditionVariable = _ILGen.DeclareLocal(typeof(bool));
             _ILGen.Emit(OpCodes.Ldloc, variable); // load object on the stack
             _ILGen.Emit(OpCodes.Ldnull); // load null 
             _ILGen.Emit(OpCodes.Cgt_Un); // if(object != null)  
             _ILGen.Emit(OpCodes.Stloc, nullConditionVariable); // save condition result into variable
-            _ILGen.Emit(OpCodes.Ldloc, nullConditionVariable); // load condition result in stack
+            _ILGen.Emit(OpCodes.Ldloc, nullConditionVariable); // load condition result on stack
             _ILGen.Emit(OpCodes.Brfalse_S, goIfNull);// if false (object = null) -> Goto 
         }
 
+        /// <summary>
+        /// Invokes method on instance 
+        /// </summary>
+        /// <param name="method"></param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void InvokeOnThis(MethodInfo method)
         {
             _ILGen.Emit(OpCodes.Ldarg_0); // load this
             PrepareMethodParams(method);
-            _ILGen.Emit(OpCodes.Call, method); // this.get_PreAction()
+            _ILGen.Emit(OpCodes.Call, method); // this.{method}.Invoke()
         }
-        
+        /// <summary>
+        /// Invokes method on instance and save result into <see cref="resultVariable"/>
+        /// </summary>
+        /// <param name="method"></param>
+        /// <param name="resultVariable"></param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void InvokeOnThisWithResult(MethodInfo method, LocalBuilder resultVariable)
         {
-            _ILGen.Emit(OpCodes.Ldarg_0); // load this
-            PrepareMethodParams(method);
-            _ILGen.Emit(OpCodes.Call, method); // this.{method}.Invoke()
+            InvokeOnThis(method);
             _ILGen.Emit(OpCodes.Stloc, resultVariable); // this.{resultVariable} = {result}
         }
 
+        /// <summary>
+        /// Loads invocation params of method on stack
+        /// </summary>
+        /// <param name="method"></param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void PrepareMethodParams(MethodInfo method)
         {
@@ -56,28 +66,46 @@ namespace Vp.DynamicProxy
             }
         }
 
+        /// <summary>
+        /// invokes <see cref="methodGetter"/> and save value into <see cref="storeVariable"/> 
+        /// </summary>
+        /// <param name="methodGetter"></param>
+        /// <param name="storeVariable"></param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void GetProperty(MethodInfo methodGetter, LocalBuilder storeVariable)
         {
             InvokeOnThisWithResult(methodGetter, storeVariable);
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void SetProperty(MethodInfo methodSetter, LocalBuilder variable)
-        {
-            _ILGen.Emit(OpCodes.Ldarg_0); // load this on stack
-            _ILGen.Emit(OpCodes.Ldarg_1); // load proxyObject on stack
-            _ILGen.Emit(OpCodes.Call, methodSetter); // ProxyObject_set(proxyObject)
-        }
-        
+        /// <summary>
+        /// Invokes <see cref="methodSetter"/> to save variable from parameters of ctor
+        /// </summary>
+        /// <code>
+        ///   class MyClass
+        ///   {
+        ///        public int Param1 { get; }
+        /// 
+        ///        public MyClass(int param1)
+        ///        {
+        ///             Param1 = param1;
+        ///        }
+        ///   }
+        /// 
+        /// </code>
+        /// <param name="methodSetter"></param>
+        /// <param name="index"></param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetPropertyCtor(MethodInfo methodSetter, int index)
         {
             _ILGen.Emit(OpCodes.Ldarg_0); // load this on stack
-            _ILGen.Emit(OpCodes.Ldarg, index); // load proxyObject on stack
-            _ILGen.Emit(OpCodes.Call, methodSetter); // ProxyObject_set(proxyObject)
+            _ILGen.Emit(OpCodes.Ldarg, index); // load param by index on the stack
+            _ILGen.Emit(OpCodes.Call, methodSetter); // save param with setter
         }
 
+        /// <summary>
+        /// Invokes base ctor 
+        /// </summary>
+        /// <param name="baseConstructor"></param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void InitializeBaseCtor(ConstructorInfo baseConstructor)
         {
@@ -85,6 +113,10 @@ namespace Vp.DynamicProxy
             _ILGen.Emit(OpCodes.Call, baseConstructor); // base()
         }
 
+        /// <summary>
+        /// when variable has type <see cref="Action"/>
+        /// </summary>
+        /// <param name="method"></param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void InvokeMethodAsVariable(LocalBuilder method)
         {
@@ -93,19 +125,25 @@ namespace Vp.DynamicProxy
             _ILGen.Emit(OpCodes.Callvirt, invokeMethod); // method.Invoke()
         }
 
+        /// <summary>
+        /// Invokes method on object
+        /// </summary>
+        /// <code>
+        ///  object.Method(param1, param2)
+        /// </code>
+        /// <param name="object"></param>
+        /// <param name="method"></param>
         public void InvokeMethodOnObject(LocalBuilder @object, MethodInfo method)
         {
-            _ILGen.Emit(OpCodes.Ldloc, @object);
-            PrepareMethodParams(method);
-            _ILGen.EmitCall(OpCodes.Callvirt, method, null);
+            _ILGen.Emit(OpCodes.Ldloc, @object); // load object on stack 
+            PrepareMethodParams(method); // load method params
+            _ILGen.EmitCall(OpCodes.Callvirt, method, null); // invoke
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void InvokeVirtualMethod(MethodInfo method)
-        {
-            _ILGen.Emit(OpCodes.Callvirt, method);
-        }
-        
+        /// <summary>
+        /// Mark point of code execution 
+        /// </summary>
+        /// <param name="label"></param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void MarkLabel(Label label)
         {
@@ -127,16 +165,21 @@ namespace Vp.DynamicProxy
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void BeginCatch()
         {
+            
+#if DEBUG
             var messageGetter = typeof(Exception).GetProperty("Message").GetGetMethod();
             var writeLine = typeof(Debug).GetMethod("Write", new[] {typeof(string)});
+#endif
             
             var exceptionVariable = _ILGen.DeclareLocal(typeof(Exception));
             _ILGen.BeginCatchBlock(typeof(Exception));
             _ILGen.Emit(OpCodes.Stloc, exceptionVariable); // store exception into variable 
             _ILGen.Emit(OpCodes.Ldloc, exceptionVariable); // load exception on stack
             
+#if DEBUG
             _ILGen.EmitCall(OpCodes.Callvirt, messageGetter, null);
-            _ILGen.EmitCall(OpCodes.Call, writeLine, null);
+            _ILGen.EmitCall(OpCodes.Call, writeLine, null);   // write exception in debug log
+#endif
         }
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -145,6 +188,10 @@ namespace Vp.DynamicProxy
             _ILGen.EndExceptionBlock();
         }
         
+        /// <summary>
+        /// Marks end point of if block
+        /// </summary>
+        /// <param name="label"></param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void MarkEndIfBlock(Label label) => _ILGen.MarkLabel(label);
         
