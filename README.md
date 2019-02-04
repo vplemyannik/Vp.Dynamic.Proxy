@@ -64,7 +64,7 @@ public class Program
             })
             .Build(worker);
 
-        proxy.DoWork("some workkkkkkkkkkkkkkkk");
+        proxy.DoWork(""Do Some useful work"");
         Console.ReadLine();
     }
 }
